@@ -1,0 +1,4 @@
+C:\Program Files (x86)\Steam\steamapps\common\Gunner HEAT PC\Bin\Mods\Chat_Rework.dll
+C:\Users\ryans\Documents\GHPC_Modding_Stuff\Chat_Rework\obj\Debug\Chat_Rework.csproj.AssemblyReference.cache
+C:\Users\ryans\Documents\GHPC_Modding_Stuff\Chat_Rework\obj\Debug\Chat_Rework.csproj.CoreCompileInputs.cache
+C:\Users\ryans\Documents\GHPC_Modding_Stuff\Chat_Rework\obj\Debug\Chat_Rework.dll
