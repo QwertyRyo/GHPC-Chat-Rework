@@ -5,20 +5,35 @@ using GHPC.AI.Radios;
 using GHPC.Player;
 using GHPC.UI.Hud;
 using UnityEngine;
-<<<<<<< HEAD
 using System.Collections.Generic;
 using System.Reflection.Emit;
-=======
-using System.Runtime.CompilerServices;
->>>>>>> aa4243ee7edacaa17426eed796d35ebeac2528c7
 
 [assembly:MelonInfo(typeof(ChatReworkMod.ChatReworkModClass), "Chat Rework",
                     "1.0.0", "Qwertyryo")]
 [assembly:MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace ChatReworkMod {
+  public static class Prefs {
+    public static MelonPreferences_Category Category;
+    // Distance (meters) within which AI crew can identify the tank type (e.g. "T-64").
+    // Beyond this range only a generic short designation is reported (e.g. "TK", "PC").
+    public static MelonPreferences_Entry<float> MidRange;
+    // Distance (meters) within which AI crew can identify the specific variant (e.g. "T-64A 1983").
+    // Between close_range and mid_range only the broad type is reported (e.g. "T-64").
+    public static MelonPreferences_Entry<float> CloseRange;
+
+    public static void Register() {
+      Category = MelonPreferences.CreateCategory("ChatRework");
+      MidRange   = Category.CreateEntry("mid_range",   1200f);
+      CloseRange = Category.CreateEntry("close_range",  600f);
+      MidRange.Comment   = "Distance in meters within which AI crew identifies the tank type (e.g. 'T-64'). Beyond this only a generic designation is reported.";
+      CloseRange.Comment = "Distance in meters within which AI crew identifies the specific variant (e.g. 'T-64A 1983'). Between close_range and mid_range only the broad type is reported.";
+    }
+  }
+
   public class ChatReworkModClass : MelonMod {
     public override void OnInitializeMelon() {
+      Prefs.Register();
       HarmonyInstance.PatchAll();
     }
   }
@@ -28,12 +43,79 @@ namespace ChatReworkMod {
   [HarmonyPatch(typeof(CommsTextMessageProcessor), "DisplaySpottingMessage")]
   public static class DisplaySpottingMessagePatch {
     internal static bool SkipNamePatch = false;
+    public static int rough_range(float dist)
+    {
+      float t = Mathf.Clamp01((dist - 400f) / (2000f - 400f));
+      float maxVariance = dist * 0.25f * t;
+      float reported = dist + UnityEngine.Random.Range(-maxVariance, maxVariance);
+      return (int)(Mathf.Round(reported / 100f) * 100f);
+    }
+
+    public static int accurate_range(float dist)
+    {
+      float t = Mathf.Clamp01((dist - 600f) / (2400f - 600f));
+      float maxVariance = dist * 0.15f * t;
+      float reported = dist + UnityEngine.Random.Range(-maxVariance, maxVariance);
+      return (int)(Mathf.Round(reported / 100f) * 100f);
+    }
+    public static int exact_range(float dist)
+    {
+      return (int)(Mathf.Round(dist/100f) * 100f);
+    }
+    private static string returnRange(float dist, string unit)
+    {
+
+      switch (unit)
+      {
+        case "M1IP":
+        case "M1":
+        case "M60A3":
+        case "M60A3TTS":
+        case "T72M":
+        case "T72M1":
+        case "T64A84":
+        case "T64B":
+        case "T64B81":
+        case "T64B1":
+        case "T64B181":
+        case "T80B":
+          return exact_range(dist).ToString();
+        case "M60A1":
+        case "M60A1AOS":
+        case "M60A1RISEP":
+        case "M60A1RISEP77":
+         case "LEO1A1":
+          case "LEO1A1A2":
+          case "LEO1A1A3":
+          case "LEO1A1A4":
+          case "LEO1A3":
+          case "LEO1A3A1":
+          case "LEO1A3A2":
+          case "LEO1A3A3":
+          case "LEO1A4":
+          case "T64R":
+          case "T64A74":
+          case "T64A79":
+          case "T64A81":
+          case "T64A":
+          case "T72":
+          case "T72UV1":
+          case "T72UV2":
+          case "T72ULEM":
+          case "T72GILLS":
+          return accurate_range(dist).ToString();
+          default:
+          return rough_range(dist).ToString();
+      }
+
+    }
     private static string FormatEnemyName(string name, float dist) {
       switch (name) {
           // units which don't need to be differentiated at this 600-1200m range
 
         case "Infantry":
           return "Infantry";
+        
 
         case "STATIC_TOW":
         case "STATIC_TOW_TRENCH":
@@ -59,11 +141,7 @@ namespace ChatReworkMod {
         case "BMP2":
           return "BMP-2";
 
-        case "BTR60PB_SA":
-        case "BTR60PB":
-          return "BTR-60";
-        case "BTR70":
-          return "BTR-70";
+
         case "Mi24":
         case "Mi24_rockets":
         case "Mi24V_NVA":
@@ -99,10 +177,23 @@ namespace ChatReworkMod {
         case "T62":
           return "T-62";
 
+        case "PT76B":
+          return "PT-76B";
+        case "UAZ469":
+          return "UAZ-469";
+        case "T3485":
+          return "T-34-85M";
+
+
       }
 
-      if (dist > 600f) {
+      if (dist > Prefs.CloseRange.Value) {
         switch (name) {
+
+        case "BTR60PB_SA":
+        case "BTR60PB":
+        case "BTR70":
+          return "BTR";
 
         case "BMP1_SA":
         case "BMP1":
@@ -173,9 +264,15 @@ namespace ChatReworkMod {
             return $"{name}";
         }
       } else {
-        // sub 600m
+        // close range
         switch (name) {
 
+
+        case "BTR60PB_SA":
+        case "BTR60PB":
+          return "BTR-60";
+        case "BTR70":
+          return "BTR-70";
         case "BMP1_SA":
         case "BMP1":
                   return "BMP-1";
@@ -277,7 +374,7 @@ namespace ChatReworkMod {
           return "M113";
 
           default:
-            return $"DEBUG: (plz report) ${name}$";
+            return $"DEBUG: ${name}$";
         }
       }
     }
@@ -292,8 +389,8 @@ namespace ChatReworkMod {
       vector.y = 0f;
       float dist = vector.magnitude;
       string text2 = "";
-      //MelonLogger.Msg($"Spotting Dist {dist}");
-      if (dist > 1200f) {
+      MelonLogger.Msg($"Spotting Dist {dist}");
+      if (dist > Prefs.MidRange.Value) {
         string shortText = spotted.Unit.ShortNameUs.ToString();
         if (shortText == "Pc") shortText = "PC";
         text2 = string.Concat(new string[]
@@ -321,15 +418,14 @@ namespace ChatReworkMod {
       CommsTextMessageProcessor.CardinalDirections cardinalDirections =
           __instance.AngleToCardinal(num);
       string text = __instance.MakeMessagePrefix(spotter.Unit);
+      string reportedRange = returnRange(dist, spotter.Unit.UniqueName);
       string text3 =
           text + "Spotted " + text2 + ", " + cardinalDirections.ToString();
+      text3 = text3 + ", range "+reportedRange+"m!";
       __instance._textMessageQueue.AppendMessage(text3, 0f);
       return false;
     }
   }
-<<<<<<< HEAD
 
 
-=======
->>>>>>> aa4243ee7edacaa17426eed796d35ebeac2528c7
 }
