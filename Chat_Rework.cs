@@ -421,7 +421,7 @@ namespace ChatReworkMod {
       string reportedRange = returnRange(dist, spotter.Unit.UniqueName);
       string text3 =
           text + "Spotted " + text2 + ", " + cardinalDirections.ToString();
-      text3 = text3 + ", range "+reportedRange+"m!";
+      text3 = text3 + " at "+reportedRange+"m!";
       __instance._textMessageQueue.AppendMessage(text3, 0f);
       return false;
     }
