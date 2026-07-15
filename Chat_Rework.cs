@@ -243,7 +243,7 @@ namespace ChatReworkMod {
     }
 
 
-    private static string IdentifyEnemy(string name, float dist) {
+    internal static string IdentifyEnemy(string name, float dist) {
       // Units always reported at full specificity regardless of distance.
       switch (name) {
         case "Infantry":
@@ -438,11 +438,21 @@ namespace ChatReworkMod {
     }
   }
 
-  [HarmonyPatch(typeof(VoicePlayer), "PlayAudioEvent")]
-  public static class VoicePlayerPlayAudioEventPatch {
-    [HarmonyPrefix]
-    static void Prefix(VoicePlayer __instance, CrewPosition crew, string eventKey) {
-      MelonLogger.Msg($"[PlayAudioEvent] crew={crew} key={eventKey}");
+
+  [HarmonyPatch(typeof(TextMessageQueue), "Awake")]
+  public static class TextMessageQueueAwakePatch {
+    [HarmonyPostfix]
+    static void Postfix(TextMessageQueue __instance) {
+      if (__instance is SubtitleMessageQueue) return;
+      __instance._maxMessagesVisible = 10;
+      __instance._defaultMessageTimeToLive = 10f;
+
+      RectTransform rt = __instance.GetComponent<RectTransform>();
+      if (rt != null) {
+        Vector2 size = rt.sizeDelta;
+        size.y *= 1.3f;
+        rt.sizeDelta = size;
+      }
     }
   }
 
@@ -450,7 +460,69 @@ namespace ChatReworkMod {
   public static class VoiceRoutinesBaseTargetStruckPatch {
     [HarmonyPrefix]
     static void Prefix(VoiceRoutinesBase __instance, ITarget target) {
-      MelonLogger.Msg($"[TargetStruck] target={target?.Owner?.UniqueName ?? "null"}");
+      string shooter = __instance._crewVoiceHandler?.UnitInfoBroker?.Unit?.UniqueName ?? "?";
+      MelonLogger.Msg($"[TargetStruck] {shooter} hit {target?.Owner?.UniqueName ?? "null"}");
+    }
+  }
+
+  [HarmonyPatch(typeof(DEVoiceRoutines), "TargetStruck")]
+  public static class DEVoiceRoutinesTargetStruckPatch {
+    [HarmonyPrefix]
+    static void Prefix(DEVoiceRoutines __instance, ITarget target) {
+      string shooter = __instance._crewVoiceHandler?.UnitInfoBroker?.Unit?.UniqueName ?? "?";
+      MelonLogger.Msg($"[TargetStruck:DE] {shooter} hit {target?.Owner?.UniqueName ?? "null"}");
+    }
+  }
+
+  [HarmonyPatch(typeof(USSRVoiceRoutines), "TargetStruck")]
+  public static class USSRVoiceRoutinesTargetStruckPatch {
+    [HarmonyPrefix]
+    static void Prefix(USSRVoiceRoutines __instance, ITarget target) {
+      string shooter = __instance._crewVoiceHandler?.UnitInfoBroker?.Unit?.UniqueName ?? "?";
+      MelonLogger.Msg($"[TargetStruck:USSR] {shooter} hit {target?.Owner?.UniqueName ?? "null"}");
+    }
+  }
+
+  [HarmonyPatch(typeof(Unit), "NotifyStruck")]
+  public static class UnitNotifyStruckPatch {
+    public static readonly Dictionary<IUnit, IUnit> LastShooter = new Dictionary<IUnit, IUnit>();
+
+    [HarmonyPrefix]
+    static void Prefix(Unit __instance, IUnit shooter) {
+      if (shooter != null) {
+        LastShooter[__instance] = shooter;
+      }
+    }
+  }
+
+  [HarmonyPatch(typeof(Unit), "onNeutralized")]
+  public static class UnitNeutralizedPatch {
+    [HarmonyPostfix]
+    static void Postfix(Unit __instance) {
+      if (!UnitNotifyStruckPatch.LastShooter.TryGetValue(__instance, out IUnit shooter)) return;
+      UnitNotifyStruckPatch.LastShooter.Remove(__instance);
+
+      IUnit playerUnit = PlayerInput.Instance?.CurrentPlayerUnit;
+      if (playerUnit == null) return;
+      if (shooter == playerUnit) return;
+
+      Unit shooterUnit = shooter as Unit;
+      if (shooterUnit == null) return;
+      if (shooterUnit.Allegiance != playerUnit.Allegiance) return;
+
+      CommsTextMessageProcessor cmp = CommsTextMessageProcessor.I;
+      if (cmp == null) return;
+      float dist = Vector3.Distance(shooterUnit.transform.position, __instance.transform.position);
+      string enemyName;
+      if (dist > Prefs.MidRange.Value) {
+        string shortText = __instance.ShortNameUs.ToString();
+        if (shortText == "Pc") shortText = "PC";
+        enemyName = shortText;
+      } else {
+        enemyName = DisplaySpottingMessagePatch.IdentifyEnemy(__instance.UniqueName, dist);
+      }
+      string msg = cmp.MakeMessagePrefix(shooterUnit) + "Destroyed <color=#D9774A>" + enemyName + "</color>";
+      cmp._textMessageQueue.AppendMessage(msg, 0f);
     }
   }
 
