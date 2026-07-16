@@ -46,7 +46,7 @@ namespace ChatReworkMod {
       HarmonyInstance.PatchAll();
       var patched = HarmonyInstance.GetPatchedMethods();
       foreach (var m in patched)
-        MelonLogger.Msg("[Patch] " + m.DeclaringType?.Name + "." + m.Name);
+        //MelonLogger.Msg("[Patch] " + m.DeclaringType?.Name + "." + m.Name);
       MelonLogger.Msg("Chat Rework initialized.");
     }
   }
@@ -461,7 +461,7 @@ namespace ChatReworkMod {
     [HarmonyPrefix]
     static void Prefix(VoiceRoutinesBase __instance, ITarget target) {
       string shooter = __instance._crewVoiceHandler?.UnitInfoBroker?.Unit?.UniqueName ?? "?";
-      MelonLogger.Msg($"[TargetStruck] {shooter} hit {target?.Owner?.UniqueName ?? "null"}");
+      //MelonLogger.Msg($"[TargetStruck] {shooter} hit {target?.Owner?.UniqueName ?? "null"}");
     }
   }
 
@@ -470,7 +470,7 @@ namespace ChatReworkMod {
     [HarmonyPrefix]
     static void Prefix(DEVoiceRoutines __instance, ITarget target) {
       string shooter = __instance._crewVoiceHandler?.UnitInfoBroker?.Unit?.UniqueName ?? "?";
-      MelonLogger.Msg($"[TargetStruck:DE] {shooter} hit {target?.Owner?.UniqueName ?? "null"}");
+      //MelonLogger.Msg($"[TargetStruck:DE] {shooter} hit {target?.Owner?.UniqueName ?? "null"}");
     }
   }
 
@@ -479,7 +479,7 @@ namespace ChatReworkMod {
     [HarmonyPrefix]
     static void Prefix(USSRVoiceRoutines __instance, ITarget target) {
       string shooter = __instance._crewVoiceHandler?.UnitInfoBroker?.Unit?.UniqueName ?? "?";
-      MelonLogger.Msg($"[TargetStruck:USSR] {shooter} hit {target?.Owner?.UniqueName ?? "null"}");
+      //MelonLogger.Msg($"[TargetStruck:USSR] {shooter} hit {target?.Owner?.UniqueName ?? "null"}");
     }
   }
 
