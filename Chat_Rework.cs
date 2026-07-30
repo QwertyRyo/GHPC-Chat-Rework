@@ -45,8 +45,7 @@ namespace ChatReworkMod {
       Prefs.Register();
       HarmonyInstance.PatchAll();
       var patched = HarmonyInstance.GetPatchedMethods();
-      foreach (var m in patched)
-        //MelonLogger.Msg("[Patch] " + m.DeclaringType?.Name + "." + m.Name);
+     
       MelonLogger.Msg("Chat Rework initialized.");
     }
   }
@@ -131,7 +130,25 @@ namespace ChatReworkMod {
       }
 
     }
+    // Accepts a Unit; if another mod changed _friendlyName, use it instead of the switch lookup.
+    internal static string FormatName(string name, Unit unit) {
+      if (unit != null) {
+        string friendly = unit.FriendlyName;
+        string stock = FormatNameSwitch(name);
+        // If FriendlyName differs from both the raw UniqueName and our formatted version,
+        // another mod (e.g. PactIncreasedLethality) changed it — use theirs.
+        if (!string.IsNullOrEmpty(friendly) && friendly != stock && friendly != name)
+          return friendly;
+        return stock;
+      }
+      return FormatNameSwitch(name);
+    }
+
     internal static string FormatName(string name) {
+      return FormatNameSwitch(name);
+    }
+
+    private static string FormatNameSwitch(string name) {
       switch (name) {
         case "Infantry":          return "Infantry";
 
@@ -243,7 +260,7 @@ namespace ChatReworkMod {
     }
 
 
-    internal static string IdentifyEnemy(string name, float dist) {
+    internal static string IdentifyEnemy(string name, float dist, Unit unit = null) {
       // Units always reported at full specificity regardless of distance.
       switch (name) {
         case "Infantry":
@@ -275,16 +292,15 @@ namespace ChatReworkMod {
         case "URAL375D_SA":
         case "URAL375D":
         case "M923":
-        case "T80B":
         case "T62":
         case "PT76B":
         case "UAZ469":
         case "T3485":
-          return FormatName(name);
+          return FormatName(name, unit);
       }
 
       if (dist <= Prefs.CloseRange.Value)
-        return FormatName(name);
+        return FormatName(name, unit);
 
       // Mid-range: report at group level.
       switch (name) {
@@ -347,7 +363,9 @@ namespace ChatReworkMod {
         case "M113G":
         case "M113":                      return "M113";
 
-        default:                          return FormatName(name);
+        case "T80B":                      return "T-80";
+
+        default:                          return FormatName(name, unit);
       }
     }
 
@@ -367,6 +385,7 @@ namespace ChatReworkMod {
       float dist = vector.magnitude;
       string text2 = "";
       //MelonLogger.Msg($"Spotting Dist {dist}");
+      //MelonLogger.Msg(spotted.Unit.UniqueName);
       if (dist > Prefs.MidRange.Value) {
         string shortText = spotted.Unit.ShortNameUs.ToString();
         if (shortText == "Pc") shortText = "PC";
@@ -381,7 +400,7 @@ namespace ChatReworkMod {
       }
     else
             {
-            text2 = IdentifyEnemy(spotted.Unit.UniqueName, dist);
+            text2 = IdentifyEnemy(spotted.Unit.UniqueName, dist, spotted.Unit as Unit);
             text2 = string.Concat(new string[]
 			{
 				"<color=#",
@@ -417,7 +436,7 @@ namespace ChatReworkMod {
       _recent[__instance] = now;
       CommsTextMessageProcessor i = CommsTextMessageProcessor.I;
       string text2 = "We're bailing out.";
-      i.DisplayCustomMessage(DisplaySpottingMessagePatch.FormatName(__instance.Unit.UniqueName), text2);
+      i.DisplayCustomMessage(DisplaySpottingMessagePatch.FormatName(__instance.Unit.UniqueName, __instance.Unit as Unit), text2);
     }
   }
 
@@ -519,7 +538,7 @@ namespace ChatReworkMod {
         if (shortText == "Pc") shortText = "PC";
         enemyName = shortText;
       } else {
-        enemyName = DisplaySpottingMessagePatch.IdentifyEnemy(__instance.UniqueName, dist);
+        enemyName = DisplaySpottingMessagePatch.IdentifyEnemy(__instance.UniqueName, dist, __instance);
       }
       string msg = cmp.MakeMessagePrefix(shooterUnit) + "Destroyed <color=#D9774A>" + enemyName + "</color>";
       cmp._textMessageQueue.AppendMessage(msg, 0f);
