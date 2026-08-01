@@ -453,7 +453,7 @@ namespace ChatReworkMod {
       _recent[__instance] = now;
       CommsTextMessageProcessor i = CommsTextMessageProcessor.I;
       string text2 = "AAAAAHH-";
-      i.DisplayCustomMessage(__instance.Unit.UniqueName, text2);
+      i.DisplayCustomMessage(DisplaySpottingMessagePatch.FormatName(__instance.Unit.UniqueName, __instance.Unit as Unit), text2);
     }
   }
 
